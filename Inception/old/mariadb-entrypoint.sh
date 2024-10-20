@@ -20,48 +20,43 @@ EOF
 # Function to initialize the database on the first volume mount
 initialize_database() {
     echo "Initializing the database for the first volume mount..."
-
+    
     # Initialize a database in the specified data directory
-    mariadb-install-db --user=mysql --datadir=/var/lib/mysql
+    mysql_install_db --datadir=/var/lib/mysql --skip-test-db --user=mysql --group=mysql \
+        --auth-root-authentication-method=socket >/dev/null 2>/dev/null
 
     # Start MariaDB in the background
     mysqld_safe &
-    mysqld_pid=$!
+    mysqld_pid=$!  # Store the PID of the background process
 
     # Wait for the server to start
-    until mysqladmin ping --silent; do
-        echo "Waiting for MariaDB to start..."
-        sleep 1
-    done
+    mysqladmin ping -u root --silent --wait >/dev/null 2>/dev/null
 
     # Create database and user accounts
     echo "Setting up database and user accounts..."
-    cat << EOF | mysql --protocol=socket -u root
-CREATE DATABASE IF NOT EXISTS \`$MYSQL_DATABASE\`;
-CREATE USER IF NOT EXISTS '$MYSQL_USER'@'%' IDENTIFIED BY '$MYSQL_PASSWORD';
-GRANT ALL PRIVILEGES ON \`$MYSQL_DATABASE\`.* TO '$MYSQL_USER'@'%';
-GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' IDENTIFIED BY '$MYSQL_ROOT_PASSWORD';
-FLUSH PRIVILEGES;
+    cat << EOF | mysql --protocol=socket -u root -p=
+CREATE DATABASE $MYSQL_DATABASE;  # Create the specified database
+CREATE USER '$MYSQL_USER'@'%' IDENTIFIED BY '$MYSQL_PASSWORD';  # Create user with specified password
+GRANT ALL PRIVILEGES ON $MYSQL_DATABASE.* TO '$MYSQL_USER'@'%';  # Grant privileges to the user
+GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' IDENTIFIED BY '$MYSQL_ROOT_PASSWORD';  # Grant privileges to root
+FLUSH PRIVILEGES;  # Refresh privileges
 EOF
 
     # Shut down the temporary server and mark the volume as initialized
     mysqladmin shutdown
-    touch "$FIRST_MOUNT_FLAG"
+    touch "$FIRST_MOUNT_FLAG"  # Indicate that the volume has been initialized
 }
 
 # Main script execution starts here
 if [ ! -e "$FIRST_RUN_FLAG" ]; then
-    configure_server
+    configure_server  # Configure server on first run
 fi
 
 if [ ! -e "$FIRST_MOUNT_FLAG" ]; then
-    if [ -z "$MYSQL_DATABASE" ] || [ -z "$MYSQL_USER" ] || [ -z "$MYSQL_PASSWORD" ] || [ -z "$MYSQL_ROOT_PASSWORD" ]; then
-        echo "Error: Missing environment variables. Exiting..."
-        exit 1
-    fi
-    initialize_database
+    initialize_database  # Initialize database on first mount
 fi
 
 # Execute the MariaDB server as the main process
 echo "Starting MariaDB server..."
-exec mysqld_safe
+exec mysqld_safe 
+

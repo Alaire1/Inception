@@ -84,6 +84,6 @@ volumes:
  
 
 networks:
-  inception-network:
+  docker-network:
     name: docker-network
     driver: bridge
