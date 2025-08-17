@@ -1,24 +1,19 @@
 #!/bin/bash
-set -e  # Exit immediately if a command exits with a non-zero status
+set -e  
 
-# Ensure DOMAIN_NAME is set
 if [ -z "$DOMAIN_NAME" ]; then
     echo "Error: DOMAIN_NAME is not set."
     exit 1
 fi
 
-# On the first container run, generate a certificate and configure the server
 if [ ! -e /etc/.firstrun ]; then
-    # Create the SSL directory if it doesn't exist
     mkdir -p /etc/nginx/ssl
 
-    # Generate a certificate for HTTPS
     openssl req -x509 -days 365 -newkey rsa:2048 -nodes \
         -out '/etc/nginx/ssl/cert.crt' \
         -keyout '/etc/nginx/ssl/cert.key' \
         -subj "/CN=$DOMAIN_NAME" || { echo "SSL certificate generation failed"; exit 1; }
 
-    # Configure nginx to serve static WordPress files and pass PHP requests
     cat << EOF >> /etc/nginx/http.d/default.conf
 server {
     listen 80;
@@ -67,5 +62,4 @@ EOF
     touch /etc/.firstrun
 fi
 
-# Start NGINX
 exec nginx -g 'daemon off;'

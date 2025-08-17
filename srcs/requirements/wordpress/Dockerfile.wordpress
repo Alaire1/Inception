@@ -1,6 +1,5 @@
 FROM alpine:3.19.2
 
-
 RUN apk update && apk add \
     bash \
     curl \
@@ -33,16 +32,14 @@ RUN apk update && apk add \
     php82-zlib \
     php82-tokenizer
 
-# Download WP-CLI (WordPress Command Line Interface) and make it executable
+
 RUN cd /usr/local/bin && \
     curl -o wp -L https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar && \
     chmod +x wp
 
-
 COPY tools/wordpress-entrypoint.sh /usr/local/bin/
 
-
+RUN echo "memory_limit=512M" > /etc/php82/conf.d/99_memory-limit.ini
 RUN chmod +x /usr/local/bin/wordpress-entrypoint.sh
-
 
 ENTRYPOINT [ "wordpress-entrypoint.sh" ]
